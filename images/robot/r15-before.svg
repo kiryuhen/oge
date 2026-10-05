@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="152" height="320" viewBox="0 0 152 320">
+<rect width="152" height="320" fill="#ffffff"/>
+<line x1="6" y1="6" x2="6" y2="314" stroke="#bdbdbd" stroke-width="1"/>
+<line x1="34" y1="6" x2="34" y2="314" stroke="#bdbdbd" stroke-width="1"/>
+<line x1="62" y1="6" x2="62" y2="314" stroke="#bdbdbd" stroke-width="1"/>
+<line x1="90" y1="6" x2="90" y2="314" stroke="#bdbdbd" stroke-width="1"/>
+<line x1="118" y1="6" x2="118" y2="314" stroke="#bdbdbd" stroke-width="1"/>
+<line x1="146" y1="6" x2="146" y2="314" stroke="#bdbdbd" stroke-width="1"/>
+<line x1="6" y1="6" x2="146" y2="6" stroke="#bdbdbd" stroke-width="1"/>
+<line x1="6" y1="34" x2="146" y2="34" stroke="#bdbdbd" stroke-width="1"/>
+<line x1="6" y1="62" x2="146" y2="62" stroke="#bdbdbd" stroke-width="1"/>
+<line x1="6" y1="90" x2="146" y2="90" stroke="#bdbdbd" stroke-width="1"/>
+<line x1="6" y1="118" x2="146" y2="118" stroke="#bdbdbd" stroke-width="1"/>
+<line x1="6" y1="146" x2="146" y2="146" stroke="#bdbdbd" stroke-width="1"/>
+<line x1="6" y1="174" x2="146" y2="174" stroke="#bdbdbd" stroke-width="1"/>
+<line x1="6" y1="202" x2="146" y2="202" stroke="#bdbdbd" stroke-width="1"/>
+<line x1="6" y1="230" x2="146" y2="230" stroke="#bdbdbd" stroke-width="1"/>
+<line x1="6" y1="258" x2="146" y2="258" stroke="#bdbdbd" stroke-width="1"/>
+<line x1="6" y1="286" x2="146" y2="286" stroke="#bdbdbd" stroke-width="1"/>
+<line x1="6" y1="314" x2="146" y2="314" stroke="#bdbdbd" stroke-width="1"/>
+<rect x="6" y="6" width="140" height="308" fill="none" stroke="#000" stroke-width="2"/>
+<line x1="90" y1="61" x2="90" y2="91" stroke="#000" stroke-width="5" stroke-linecap="square"/>
+<line x1="62" y1="201" x2="62" y2="231" stroke="#000" stroke-width="5" stroke-linecap="square"/>
+<line x1="90" y1="201" x2="90" y2="231" stroke="#000" stroke-width="5" stroke-linecap="square"/>
+<line x1="62" y1="61" x2="62" y2="91" stroke="#000" stroke-width="5" stroke-linecap="square"/>
+<line x1="62" y1="117" x2="62" y2="147" stroke="#000" stroke-width="5" stroke-linecap="square"/>
+<line x1="90" y1="89" x2="90" y2="119" stroke="#000" stroke-width="5" stroke-linecap="square"/>
+<line x1="90" y1="117" x2="90" y2="147" stroke="#000" stroke-width="5" stroke-linecap="square"/>
+<line x1="90" y1="173" x2="90" y2="203" stroke="#000" stroke-width="5" stroke-linecap="square"/>
+<line x1="90" y1="145" x2="90" y2="175" stroke="#000" stroke-width="5" stroke-linecap="square"/>
+<line x1="62" y1="145" x2="62" y2="175" stroke="#000" stroke-width="5" stroke-linecap="square"/>
+<line x1="62" y1="173" x2="62" y2="203" stroke="#000" stroke-width="5" stroke-linecap="square"/>
+<line x1="62" y1="89" x2="62" y2="119" stroke="#000" stroke-width="5" stroke-linecap="square"/>
+<polygon points="76.0,39.04 84.96000000000001,48.0 76.0,56.96 67.03999999999999,48.0" fill="#ffffff" stroke="#000" stroke-width="2"/>
+</svg>

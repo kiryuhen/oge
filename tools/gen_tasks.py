@@ -160,7 +160,7 @@ def _enc(word, table):
 def _table_md(table):
     letters = list(table)
     return ("| " + " | ".join(letters) + " |\n|" + "---|" * len(letters) + "\n| " +
-            " | ".join(table[c] for c in letters) + " |")
+            " | ".join(f"`{table[c]}`" for c in letters) + " |")
 
 
 def t2_unique(rng):
@@ -240,23 +240,23 @@ def t3_number(rng):
             vb = not _cond_eval(b, x) if nb else _cond_eval(b, x)
             return (va and vb) if op == "И" else (va or vb)
 
-        xs = [x for x in range(-200, 201) if f(x) == want]
-        if not xs or len(xs) > 380:
+        dom = range(1, 1001)  # натуральные числа (достаточно далеко вправо, чтобы увидеть неограниченность)
+        xs = [x for x in dom if f(x) == want]
+        if not xs or len(xs) == len(dom):
             continue
         # отбрасываем вырожденные случаи, когда одна из частей ни на что не влияет
-        sa = {x for x in range(-200, 201) if (not _cond_eval(a, x) if na else _cond_eval(a, x)) == want}
-        sb = {x for x in range(-200, 201) if (not _cond_eval(b, x) if nb else _cond_eval(b, x)) == want}
+        sa = {x for x in dom if (not _cond_eval(a, x) if na else _cond_eval(a, x)) == want}
+        sb = {x for x in dom if (not _cond_eval(b, x) if nb else _cond_eval(b, x)) == want}
         if set(xs) in (sa, sb):
             continue
-        lo, hi = min(xs), max(xs)
         if extreme == "наименьшее":
-            if lo == -200 or lo < 1:
-                continue
-            ans = lo
+            ans = min(xs)
+            if ans == 1:
+                continue  # слишком очевидно
         else:
-            if hi == 200:
-                continue
-            ans = hi
+            ans = max(xs)
+            if ans > 900:
+                continue  # множество не ограничено сверху — наибольшего нет
         ta = ("НЕ " if na else "") + f"({_cond_text(a)})"
         tb = ("НЕ " if nb else "") + f"({_cond_text(b)})"
         text = (f"Напишите {extreme} натуральное число X, для которого {'истинно' if want else 'ложно'} "

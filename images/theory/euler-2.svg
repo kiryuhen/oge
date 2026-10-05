@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="420" height="240" viewBox="0 0 420 240">
+<rect width="420" height="240" fill="#fff"/>
+<circle cx="160" cy="120" r="95" fill="#1e88e5" fill-opacity="0.18" stroke="#1565c0" stroke-width="2"/>
+<circle cx="260" cy="120" r="95" fill="#e53935" fill-opacity="0.18" stroke="#c62828" stroke-width="2"/>
+<g font-family="DejaVu Sans" font-size="18" text-anchor="middle">
+<text x="110" y="126">1</text><text x="210" y="126">2</text><text x="310" y="126">3</text>
+<text x="95" y="30" fill="#1565c0" font-weight="bold">A</text><text x="325" y="30" fill="#c62828" font-weight="bold">B</text>
+</g>
+<g font-family="DejaVu Sans" font-size="12" text-anchor="middle" fill="#444">
+<text x="110" y="146">только A</text><text x="210" y="146">A и B</text><text x="310" y="146">только B</text>
+</g></svg>

@@ -162,11 +162,11 @@ def article_chess():
     title = "Шахматный турнир"
     body = [f"В актовом зале прошёл традиционный шахматный турнир, в нём участвовали {rng.randint(14, 40)} человек.",
             f"Турнир проходил в {rounds} туров по швейцарской системе.",
-            f"Победителем стал{v(p[2], '', 'а')} {p[0]} {p[1]} ({c}), {v(p[2], 'который', 'которая')} "
-            f"в последнем туре обыграл{v(p[2], '', 'а')} {q[0]} {q[1]}.",
+            f"В решающей партии последнего тура встретились {p[0]} {p[1]} ({c}) и {q[0]} {q[1]}. "
+            f"Победу в партии и во всём турнире одержал{v(p[2], '', 'а')} {p[0]}.",
             rng.choice(FILLER)]
     facts = {"type": "chess", "g": p[2], "first": p[0], "last": p[1], "class": c, "rounds": rounds,
-             "loser_first": q[0], "loser_last": q[1]}
+             "loser_first": q[0], "loser_last": q[1], "loser_g": q[2]}
     return title, body, facts
 
 
@@ -300,8 +300,10 @@ def make_q11(articles):
             if len(same) != 1:
                 continue
         elif t == "chess":
-            q = (f"В одной из статей рассказывается о шахматном турнире, в последнем туре которого "
-                 f"победитель обыграл(а) соперника по фамилии {a['loser_last']}. Назовите фамилию победителя.")
+            who = "шахматистка" if a["loser_g"] == "f" else "шахматист"
+            q = (f"В одной из статей рассказывается о шахматном турнире. В решающей партии последнего тура "
+                 f"проиграл{'а' if a['loser_g'] == 'f' else ''} {who} по фамилии {a['loser_last']}. "
+                 f"Назовите фамилию победителя турнира.")
             ans, key = a["last"], f"{a['loser_first']} {a['loser_last']}"
         else:
             q = (f"Проект «{a['topic'][0].upper() + a['topic'][1:]}» получил гран-при на ярмарке проектов. "
@@ -320,25 +322,25 @@ def make_q12():
     for ext in [".txt", ".htm", ".jpg", ".png", ".csv"]:
         n = sum(1 for p in files if p.endswith(ext))
         qs.append({"q": f"Сколько файлов с расширением **{ext}** содержится в каталоге **archive** "
-                        f"и всех его подкаталогах? В ответе укажите только число.", "answer": str(n)})
+                        f"и всех его подкаталогах? В ответе укажите только число.", "answer": str(n), "kind": "ext"})
     for y in years:
         for ext in [".txt", ".jpg"]:
             n = sum(1 for p in files if p.endswith(ext) and rel(p).startswith(y + os.sep))
             if n:
                 qs.append({"q": f"Сколько файлов с расширением **{ext}** содержится в подкаталогах каталога "
-                                f"**archive/{y}**? В ответе укажите только число.", "answer": str(n)})
+                                f"**archive/{y}**? В ответе укажите только число.", "answer": str(n), "kind": "year"})
     for lim in [10, 20, 30, 40]:
         for ext in [".jpg", ".png"]:
             n = sum(1 for p in files if p.endswith(ext) and os.path.getsize(p) > lim * 1024)
             qs.append({"q": f"Сколько файлов с расширением **{ext}** объёмом **более {lim} Кбайт** содержится "
                             f"в каталоге **archive** и всех его подкаталогах? В ответе укажите только число.",
-                       "answer": str(n)})
+                       "answer": str(n), "kind": "size"})
     n = sum(1 for p in files if os.path.basename(p).startswith("article-1."))
     qs.append({"q": "Сколько файлов, имя которых (без расширения) — **article-1**, содержится в каталоге "
-                    "**archive** и всех его подкаталогах?", "answer": str(n)})
+                    "**archive** и всех его подкаталогах?", "answer": str(n), "kind": "name"})
     tot = sum(os.path.getsize(p) for p in files if rel(p).startswith("photo" + os.sep))
     qs.append({"q": "Каков общий объём (в Кбайтах) всех файлов в каталоге **archive/photo** и его подкаталогах? "
-                    "Ответ округлите до целого числа.", "answer": str(round(tot / 1024))})
+                    "Ответ округлите до целого числа.", "answer": str(round(tot / 1024)), "kind": "total"})
     return qs
 
 

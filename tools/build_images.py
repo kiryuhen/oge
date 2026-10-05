@@ -146,8 +146,67 @@ def pie():
     fig.savefig(os.path.join(OUT, "pie-example.png"), facecolor="white")
 
 
+def task_examples():
+    """Картинки к разборам заданий (images/tasks/)."""
+    global OUT
+    saved, OUT = OUT, os.path.join(os.path.dirname(__file__), "..", "images", "tasks")
+    os.makedirs(OUT, exist_ok=True)
+    dot("t04-example.svg", f"""graph G {{ bgcolor=white; layout=neato; node [{FONT}, shape=circle, width=0.45, fixedsize=true];
+    edge [{FONT}, fontsize=13, fontcolor="#1565c0"];
+    A [pos="0,1!"]; B [pos="1.6,2!"]; C [pos="1.6,0!"]; D [pos="3.2,1.4!"]; E [pos="4.6,0.4!"];
+    A -- B [label="2", color="#2e7d32", penwidth=2.5]; A -- C [label="5"]; B -- C [label="2", color="#2e7d32", penwidth=2.5];
+    B -- D [label="7"]; C -- D [label="3", color="#2e7d32", penwidth=2.5]; C -- E [label="9"];
+    D -- E [label="1", color="#2e7d32", penwidth=2.5]; }}""")
+    for name, (layers, edges) in TASK9.items():
+        lines = ["digraph G { bgcolor=white; rankdir=LR; nodesep=0.5; ranksep=0.7;",
+                 f'node [{FONT}, shape=circle, width=0.45, fixedsize=true, fontsize=14]; edge [arrowsize=0.7];']
+        for L in layers:
+            lines.append("{rank=same; " + " ".join(f'"{v}"' for v in L) + "}")
+        lines += [f'"{a}" -> "{b}";' for a, b in edges]
+        lines.append("}")
+        dot(name, "\n".join(lines))
+    OUT = saved
+
+
+def _e(s):
+    return [tuple(x.split(">")) for x in s.split()]
+
+
+# схемы дорог к заданию 9 (слои — для красивой раскладки)
+TASK9 = {
+    "t09-example.svg": ([["А"], ["Б", "В", "Г"], ["Д", "Е"], ["Ж"], ["И", "К"], ["Л"]],
+                        _e("А>Б А>В А>Г Б>В В>Г Б>Д В>Д В>Е Г>Е Д>Ж Е>Ж Д>И Ж>И Ж>К Е>К И>Л К>Л")),
+    "t09-a1.svg": ([["А"], ["Б", "В"], ["Г", "Д"], ["Е"]], _e("А>Б А>В Б>В Б>Г В>Г В>Д Г>Д Г>Е Д>Е")),
+    "t09-a2.svg": ([["А"], ["Б", "В", "Г"], ["Д", "Е"], ["Ж", "И"], ["К"]],
+                   _e("А>Б А>В А>Г Б>Д В>Д В>Е Г>Е Д>Ж Д>И Е>И Е>Ж Ж>К И>К Б>В В>Г")),
+    "t09-a3.svg": ([["А"], ["Б", "В"], ["Г", "Д", "Е"], ["Ж", "И"], ["К"]],
+                   _e("А>Б А>В Б>Г Б>Д В>Д В>Е Г>Ж Д>Ж Д>И Е>И Ж>К И>К Г>Д Ж>И")),
+    "t09-a4.svg": ([["А"], ["Б", "В"], ["Г", "Д"], ["Е", "Ж"], ["И"]],
+                   _e("А>Б А>В Б>Г Б>Д В>Д В>Ж Г>Е Д>Е Д>Ж Е>И Ж>И Г>Д Е>Ж")),
+}
+
+
+def count_paths(edges, s, t, avoid=None):
+    order = []
+    nodes = {v for e in edges for v in e}
+    while len(order) < len(nodes):  # топологическая сортировка
+        for v in sorted(nodes):
+            if v not in order and all(a in order for a, b in edges if b == v):
+                order.append(v)
+    cnt = {v: 0 for v in nodes}
+    cnt[s] = 1
+    for v in order:
+        if v == avoid:
+            cnt[v] = 0
+        for a, b in edges:
+            if a == v:
+                cnt[b] += cnt[v]
+    return cnt[t]
+
+
 if __name__ == "__main__":
     os.makedirs(OUT, exist_ok=True)
+    task_examples()
     code_tree()
     weighted_graph()
     dag_count()

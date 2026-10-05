@@ -59,6 +59,15 @@ SUBJ = ["информатика", "математика", "физика", "хи�
         "английский язык", "география", "литература"]
 
 
+def acc(subject):
+    """винительный падеж: информатика → информатику"""
+    if subject.endswith("а"):
+        return subject[:-1] + "у"
+    if subject.endswith("я"):
+        return subject[:-1] + "ю"
+    return subject
+
+
 def theme_test(rng, name):
     n = rng.randint(600, 1000)
     rows = [[rng.choice(DISTRICTS)[0], f"Ученик {i + 1}", rng.choice(SUBJ), rng.randint(150, 1000)]
@@ -67,7 +76,7 @@ def theme_test(rng, name):
     d1, d2 = rng.sample(DISTRICTS, 2)
     s1 = rng.choice(SUBJ)
     q1 = (f"Сколько учеников в {d1[1].replace('ый', 'ом').replace('ий', 'ем')} округе (**{d1[0]}**) выбрали "
-          f"в качестве любимого предмета **{s1}**? Ответ на этот вопрос запишите в ячейку **H2** таблицы.")
+          f"в качестве любимого предмета **{acc(s1)}**? Ответ на этот вопрос запишите в ячейку **H2** таблицы.")
     a1 = sum(1 for r in rows if r[0] == d1[0] and r[2] == s1)
     sc = [r[3] for r in rows if r[0] == d2[0]]
     q2 = (f"Каков средний тестовый балл у учеников {d2[1].replace('ый', 'ого').replace('ий', 'его')} округа "
@@ -218,6 +227,9 @@ if __name__ == "__main__":
         theme = THEMES[i % len(THEMES)]
         intro, header, rows, qs = theme(rng, nm)
         res[nm] = {"intro": intro, "preview": first_rows_md(header, rows), "questions": qs}
+    # отдельный файл для разбора в tasks/14
+    intro, header, rows, qs = theme_test(random.Random(99), "example.xlsx")
+    res["example.xlsx"] = {"intro": intro, "preview": first_rows_md(header, rows), "questions": qs}
     with open(os.path.join(os.path.dirname(__file__), "xlsx_questions.json"), "w", encoding="utf-8") as f:
         json.dump(res, f, ensure_ascii=False, indent=1)
     print("готово:", ", ".join(names))

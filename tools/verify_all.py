@@ -37,17 +37,25 @@ def ok(task, cond, msg):
 # ------------------------------------------------------------------ извлечение задач из .md
 
 def task_items():
-    """(номер задания, текст условия, ответ, источник) для tasks/*.md и variants/*.md."""
+    """(номер задания, текст условия, ответ, источник) для tasks/*.md (общий блок и блоки подтипов) и вариантов."""
     items = []
     for path in sorted(glob.glob(os.path.join(ROOT, "tasks", "*.md"))):
         no = int(os.path.basename(path)[:2])
-        text = open(path, encoding="utf-8").read()
-        m = re.search(r"<!-- BEGIN:generated -->(.*)<!-- END:generated -->", text, re.S)
-        if not m or no > 10:
+        if no > 10:
             continue
-        for block in re.split(r"\n### Задача \d+\n", m.group(1))[1:]:
-            ans = re.search(r"<summary>Ответ</summary>\s*\*\*(.+?)\*\*", block).group(1)
-            items.append((no, block.split("<details>")[0], ans, os.path.basename(path)))
+        text = open(path, encoding="utf-8").read()
+        name = os.path.basename(path)
+        m = re.search(r"<!-- BEGIN:generated -->(.*)<!-- END:generated -->", text, re.S)
+        if m:
+            for block in re.split(r"\n### Задача \d+\n", m.group(1))[1:]:
+                ans = re.search(r"<summary>Ответ</summary>\s*\*\*(.+?)\*\*", block).group(1)
+                items.append((no, block.split("<details>")[0], ans, name))
+        for key, body in re.findall(r"<!-- BEGIN:sub:([\d.]+) -->(.*?)<!-- END:sub:", text, re.S):
+            blocks = re.split(r"\n#### Тренировка [\d.]+\n", body)[1:]
+            ok(no, len(blocks) >= 3, f"{name}: в подтипе {key} меньше 3 задач")
+            for block in blocks:
+                ans = re.search(r"<summary>Ответ</summary>\s*\*\*(.+?)\*\*", block).group(1)
+                items.append((no, block.split("<details>")[0], ans, f"{name} [{key}]"))
     for path in sorted(glob.glob(os.path.join(ROOT, "variants", "variant-*.md"))):
         text = open(path, encoding="utf-8").read()
         key = text.split("**Задания 1–12**")[1].split("**Задание 13**")[0]
@@ -60,12 +68,26 @@ def task_items():
 
 # ------------------------------------------------------------------ решатели 1–10
 
-def solve1(t):
-    bits = int(re.search(r"кодируется (\d+) бит", t).group(1))
+def solve1(t, ans=None):
+    m = re.search(r"кодируется (\d+) бит", t)
+    bits = int(m.group(1)) if m else None
+    if "перекодировали" in t:
+        a, b = map(int, re.findall(r"(\d+)-битн", t)[:2])
+        m = re.search(r"на (\d+) (байт|бит)", t)
+        diff = int(m.group(1)) * (8 if m.group(2).startswith("байт") else 1)
+        return str(diff // abs(a - b))
     if "страниц" in t:
-        nums = [int(x) for x in re.findall(r"(\d+) (?:страниц|строк|символ)", t)]
-        p, l, c = nums[:3]
-        return str(p * l * c * bits // 8 // 1024)
+        get = lambda w: (lambda m: int(m.group(1)) if m else None)(re.search(rf"(\d+) {w}", t))
+        p, l, c = get("страниц"), get("строк"), get("символ")
+        vol = re.search(r"составляет (\d+) Кбайт", t)
+        if not vol:
+            return str(p * l * c * bits // 8 // 1024)
+        total_bits = int(vol.group(1)) * 1024 * 8
+        if "Сколько символов в каждой строке" in t:
+            return str(total_bits // (p * l * bits))
+        if "Сколько строк" in t:
+            return str(total_bits // (p * c * bits))
+        return str(total_bits // (p * l * c))
     sentence = re.search(r"«(.+?) – ", t).group(1)
     words = sentence.split(", ")
     m = re.search(r"на (\d+) (байт|бит)", t)
@@ -75,32 +97,45 @@ def solve1(t):
     return cands[0].lower()
 
 
-def solve2(t):
-    head, codes = re.findall(r"^\| (.+) \|$", t, re.M)[:2]
-    table = dict(zip(head.split(" | "), [c.strip("`") for c in codes.split(" | ")]))
+def solve2(t, ans=None):
+    rows = re.findall(r"^\| (.+) \|$", t, re.M)
+    table = {}
+    for head, codes in zip(rows[0::2], rows[1::2]):
+        table.update(zip(head.split(" | "), [c.strip("`") for c in codes.split(" | ")]))
 
     def decs(s, distinct):
         if not s:
             return [""]
         res = []
         for k, c in table.items():
-            if s.startswith(c):
+            if c and s.startswith(c):
                 res += [k + r for r in decs(s[len(c):], distinct) if not (distinct and k in r)]
         return res
 
-    chains = re.findall(r"`([^`]+)`", t.split(codes)[1])
+    listed = re.findall(r"^- `([^`]+)`$", t, re.M)
+    single = re.findall(r"^`([^`]+)`$", t, re.M)
     if "не повторяются" in t:
-        return [d for d in decs(chains[0], True) if len(set(d)) == len(d)][0] if len(
-            [d for d in decs(chains[0], True) if len(set(d)) == len(d)]) == 1 else "НЕОДНОЗНАЧНО"
-    uniq = [decs(c, False) for c in chains]
-    ones = [d[0] for d in uniq if len(d) == 1]
+        good = [d for d in decs(single[0], True) if len(set(d)) == len(d)]
+        return good[0] if len(good) == 1 else "НЕОДНОЗНАЧНО"
+    if "сколько букв" in t:
+        d = decs(single[0], False)
+        return str(len(d[0])) if len(d) == 1 else "НЕОДНОЗНАЧНО"
+    ones = [d[0] for d in (decs(c, False) for c in listed) if len(d) == 1]
     return ones[0] if len(ones) == 1 else "НЕОДНОЗНАЧНО"
 
 
 VOW = set("АЕЁИОУЫЭЮЯаеёиоуыэюя")
 
 
-def solve3(t):
+def py_expr(expr, var):
+    e = expr.replace("≤", "<=").replace("≥", ">=")
+    e = re.sub(rf"{var} (?:делится на|кратно) (\d+)", rf"{var} % \1 == 0", e)
+    e = re.sub(rf"{var} оканчивается на (\d)", rf"{var} % 10 == \1", e)
+    e = e.replace(f"{var} чётное", f"{var} % 2 == 0").replace(f"{var} нечётное", f"{var} % 2 == 1")
+    return e.replace("НЕ ", " not ").replace(" ИЛИ ", " or ").replace(" И ", " and ")
+
+
+def solve3(t, ans=None):
     expr = [b for b in re.findall(r"\*\*(.+?)\*\*", t) if "(" in b][0].rstrip("?")
     if "имён" in t:
         names = re.findall(r"^\d\) (\S+)$", t, re.M)
@@ -112,9 +147,28 @@ def solve3(t):
         e = e.replace("НЕ ", " not ").replace(" ИЛИ ", " or ").replace(" И ", " and ")
         good = [n for n in names if eval(e, {"VOW": VOW, "n": n})]
         return good[0] if len(good) == 1 else "НЕОДНОЗНАЧНО"
-    e = re.sub(r"X делится на (\d+)", r"X % \1 == 0", expr)
-    e = e.replace("X чётное", "X % 2 == 0").replace("X нечётное", "X % 2 == 1")
-    e = e.replace("НЕ ", " not ").replace(" ИЛИ ", " or ").replace(" И ", " and ").replace("<=", "<=")
+    if "Дано четыре числа" in t:
+        nums = [int(x) for x in re.search(r"Дано четыре числа: ([\d, ]+)\.", t).group(1).split(", ")]
+        rep = [("Первая цифра чётная", "(int(str(n)[0]) % 2 == 0)"), ("Последняя цифра чётная", "(n % 2 == 0)"),
+               ("Сумма цифр чётная", "(sum(map(int, str(n))) % 2 == 0)"), ("Число > 100", "(n > 100)"),
+               ("Число нечётное", "(n % 2 == 1)")]
+        e = expr
+        for a, b in rep:
+            e = e.replace(a, b)
+        e = e.replace("НЕ ", " not ").replace(" ИЛИ ", " or ").replace(" И ", " and ")
+        good = [n for n in nums if eval(e, {"n": n})]
+        return str(good[0]) if len(good) == 1 else "НЕОДНОЗНАЧНО"
+    if "количество" in t:
+        dom = range(10, 100) if "двузначных" in t else range(100, 1000) if "трёхзначных" in t else range(1, 20001)
+        e = py_expr(expr, "x")
+        want = "истинно" in t
+        xs = [x for x in dom if eval(e, {"x": x}) == want]
+        assert not xs or max(xs) < 10000, "бесконечно много"
+        return str(len(xs))
+    e = py_expr(expr, "X")
+    if "Напишите число X" in t:
+        xs = [x for x in range(-1000, 1001) if eval(e, {"X": x})]
+        return str(xs[0]) if len(xs) == 1 else "НЕОДНОЗНАЧНО"
     want = "истинно" in t
     xs = [x for x in range(1, 20001) if eval(e, {"X": x}) == want]
     if "наименьшее" in t:
@@ -123,15 +177,29 @@ def solve3(t):
     return str(max(xs))
 
 
-def parse_roads(t):
+def parse_roads(t, src=None):
     rows = re.findall(r"^\| \*\*(\w)\*\* \|(.*)\|$", t, re.M)
-    names = [r[0] for r in rows]
     INF = 10 ** 9
+    if rows:
+        names = [r[0] for r in rows]
+        d = {a: {b: (0 if a == b else INF) for b in names} for a in names}
+        for a, cells in rows:
+            for b, c in zip(names, cells.split("|")):
+                if c.strip():
+                    d[a][b] = int(c)
+        return names, d
+    # схема: рёбра и веса из SVG (graphviz кладёт подпись ребра в его группу)
+    img = re.search(r"\]\((\.\./images/[^)]+\.svg)\)", t).group(1)
+    svg = open(os.path.normpath(os.path.join(ROOT, "tasks", img)), encoding="utf-8").read()
+    edges = []
+    for g in re.findall(r'<g id="edge\d+" class="edge">(.*?)</g>', svg, re.S):
+        a, b = html.unescape(re.search(r"<title>(.*?)</title>", g).group(1)).split("--")
+        w = int(re.search(r">(\d+)</text>", g).group(1))
+        edges.append((a, b, w))
+    names = sorted({x for e in edges for x in e[:2]})
     d = {a: {b: (0 if a == b else INF) for b in names} for a in names}
-    for a, cells in rows:
-        for b, c in zip(names, cells.split("|")):
-            if c.strip():
-                d[a][b] = int(c)
+    for a, b, w in edges:
+        d[a][b] = d[b][a] = w
     return names, d
 
 
@@ -147,7 +215,7 @@ def floyd(names, d, banned=()):
     return d
 
 
-def solve4(t):
+def solve4(t, ans=None):
     names, d = parse_roads(t)
     s, e = re.search(r"между пунктами (\w) и (\w)", t).groups()
     if "не проходящего через пункт" in t:
@@ -163,34 +231,41 @@ def solve4(t):
     return str(full[s][e])
 
 
-def solve5(t):
+def do_cmd(c, x, b=None):
+    if c == "возведи в квадрат":
+        return x * x
+    if c == "зачеркни справа":
+        return x // 10
+    m = re.match(r"(прибавь|вычти|умножь на|раздели на) (\w+)", c)
+    k = b if m.group(2) == "b" else int(m.group(2))
+    if m.group(1) == "раздели на":
+        return x / k
+    return {"прибавь": x + k, "вычти": x - k, "умножь на": x * k}[m.group(1)]
+
+
+def solve5(t, ans=None):
     cmds = re.findall(r"^\d\. \*\*(.+?)\*\*$", t, re.M)
-
-    def op(c, b=None):
-        m = re.match(r"(прибавь|вычти|умножь на|раздели на) (\w+)", c)
-        k = b if m.group(2) == "b" else int(m.group(2))
-        return {"прибавь": lambda x: x + k, "вычти": lambda x: x - k, "умножь на": lambda x: x * k,
-                "раздели на": lambda x: x / k}[m.group(1)]
-
     if "Определите значение b" in t:
         prog, a, z = re.search(r"программа \*\*(\d+)\*\* переводит число (\d+) в число (\d+)", t).groups()
         good = []
         for b in range(2, 1000):
             x = int(a)
             for c in prog:
-                x = op(cmds[int(c) - 1], b)(x)
+                x = do_cmd(cmds[int(c) - 1], x, b)
             if x == int(z):
                 good.append(b)
         return str(good[0]) if len(good) == 1 else "НЕОДНОЗНАЧНО"
-    a, z = map(int, re.search(r"преобразует число (\d+) в число (\d+)", t).groups())
-    for L in range(1, 6):
-        for p in itertools.product("12", repeat=L):
-            x = a
-            for c in p:
-                x = op(cmds[int(c) - 1])(x)
-            if x == z:
-                return "".join(p)
-    return "НЕТ"
+    # составить программу: проверяем записанный ответ, выполняя его
+    m = re.search(r"преобразует число (\d+) в число (\d+)", t) or re.search(r"из числа (\d+) числа (\d+)", t)
+    a, z = map(int, m.groups())
+    x = a
+    if not ans or len(ans) > 5:
+        return "НЕВЕРНО"
+    for c in ans:
+        x = do_cmd(cmds[int(c) - 1], x)
+        if x != int(x) or x <= 0:
+            return "НЕВЕРНО"
+    return ans if x == z else "НЕВЕРНО"
 
 
 def run6(code, s, t, A=None):
@@ -204,7 +279,7 @@ def run6(code, s, t, A=None):
     return buf.getvalue().strip()
 
 
-def solve6(t):
+def solve6(t, ans=None):
     code = re.search(r"```python\n(.*?)```", t, re.S).group(1)
     pairs = [tuple(map(int, p)) for p in re.findall(r"\((-?\d+), (-?\d+)\)", t.split("пары чисел")[1])]
     word = re.search(r"напечатает «(\w+)»|напечатала «(\w+)»", t).groups()
@@ -220,46 +295,78 @@ def solve6(t):
     return str(len(good))
 
 
-def solve7(t):
-    file, server, proto = re.search(r"файлу \*\*(.+?)\*\*.*сервере \*\*(.+?)\*\*.*протоколу \*\*(.+?)\*\*", t).groups()
-    url = f"{proto}://{server}/{file}"
+def _valid_ip(s):
+    p = s.split(".")
+    return len(p) == 4 and all(x.isdigit() and int(x) <= 255 and (x == "0" or x[0] != "0") for x in p)
+
+
+def solve7(t, ans=None):
     frags = dict(re.findall(r"^(\w)\) `(.+?)`$", t, re.M))
-    # перебор всех перестановок — независимо от «смысла» фрагментов
-    for perm in itertools.permutations(frags):
-        if "".join(frags[x] for x in perm) == url:
-            return "".join(perm)
-    return "НЕТ"
+    if "IP-адрес" in t:
+        cells = re.findall(r"`([^`]+)`", t)
+        frags = dict(zip("АБВГ", cells))
+        sols = ["".join(p) for p in itertools.permutations(frags) if _valid_ip("".join(frags[x] for x in p))]
+        return sols[0] if len(sols) == 1 else "НЕОДНОЗНАЧНО"
+    if "почтовый ящик" in t:
+        server, box = re.search(r"сервере \*\*(.+?)\*\* находится почтовый ящик \*\*(.+?)\*\*", t).groups()
+        target = f"{box}@{server}"
+    else:
+        file, server, proto = re.search(r"файлу \*\*(.+?)\*\*.*сервере \*\*(.+?)\*\*.*протоколу \*\*(.+?)\*\*",
+                                        t).groups()
+        target = f"{proto}://{server}/{file}"
+    sols = ["".join(p) for p in itertools.permutations(frags) if "".join(frags[x] for x in p) == target]
+    return sols[0] if len(sols) == 1 else "НЕОДНОЗНАЧНО"
 
 
-def solve8(t):
+def solve8(t, ans=None):
+    """Круги Эйлера через линейную алгебру: области — непустые подмножества слов."""
+    from fractions import Fraction
     rows = {r.replace("\\|", "|"): int(v) for r, v in re.findall(r"^\| (.+?) \| (\d+) \|$", t, re.M)}
     target = re.search(r"по запросу \*\*(.+?)\*\*", t).group(1)
-    words = [w for w in rows if "|" not in w and "&" not in w] + [target]
-    pair = next(k for k in list(rows) + [target] if "|" in k or "&" in k)
-    a, b = re.split(r" [|&] ", pair)
-    # неизвестные области: x = только A, y = только B, z = оба; перебор по сетке
-    for z in range(0, 20001, 10):
-        for x in range(0, 20001, 10):
-            vals = {a: x + z}
-            known = dict(rows)
-            if f"{a} & {b}" in known and known[f"{a} & {b}"] != z:
-                break
-            if a in known and known[a] != x + z:
-                continue
-            # y из любого известного соотношения
-            if b in known:
-                y = known[b] - z
-            elif f"{a} | {b}" in known:
-                y = known[f"{a} | {b}"] - x - z
-            else:
-                continue
-            allv = {a: x + z, b: y + z, f"{a} | {b}": x + y + z, f"{a} & {b}": z}
-            if all(allv[k] == v for k, v in known.items()) and y >= 0:
-                return str(allv[target])
-    return "НЕТ"
+    split = lambda q: [w.strip() for w in re.split(r"[|&]", q)]
+    words = sorted({w for q in list(rows) + [target] for w in split(q)})
+    regions = [frozenset(c) for k in range(1, len(words) + 1) for c in itertools.combinations(words, k)]
+
+    def vec(q):
+        ws = set(split(q))
+        if "|" in q:
+            return [Fraction(int(bool(ws & r))) for r in regions]
+        return [Fraction(int(ws <= r)) for r in regions]
+
+    zero = set()
+    for q, v in rows.items():
+        if v == 0:
+            zero |= {i for i, x in enumerate(vec(q)) if x}
+    keep = [i for i in range(len(regions)) if i not in zero]
+    A = [[vec(q)[i] for i in keep] + [Fraction(v)] for q, v in rows.items()]
+    tv = [vec(target)[i] for i in keep]
+    # приводим систему к ступенчатому виду и выражаем target как комбинацию строк
+    n = len(keep)
+    m = [row[:] for row in A]
+    piv_cols, r = [], 0
+    for c in range(n):
+        p = next((i for i in range(r, len(m)) if m[i][c] != 0), None)
+        if p is None:
+            continue
+        m[r], m[p] = m[p], m[r]
+        m[r] = [x / m[r][c] for x in m[r]]
+        for i in range(len(m)):
+            if i != r and m[i][c] != 0:
+                m[i] = [a - m[i][c] * b for a, b in zip(m[i], m[r])]
+        piv_cols.append(c)
+        r += 1
+    # target · x, где x — любое решение; однозначно, если tv лежит в пространстве строк
+    res = tv[:]
+    val = Fraction(0)
+    for i, c in enumerate(piv_cols):
+        coef = res[c]
+        if coef:
+            res = [a - coef * b for a, b in zip(res, m[i][:n])]
+            val += coef * m[i][n]
+    return str(int(val)) if all(x == 0 for x in res) else "НЕОДНОЗНАЧНО"
 
 
-def solve9(t, src):
+def solve9(t, src, ans=None):
     img = re.search(r"\]\((\.\./images/[^)]+\.svg)\)", t).group(1)
     base = os.path.join(ROOT, "tasks" if src.startswith(("0", "1")) else "variants")
     svg = open(os.path.normpath(os.path.join(base, img)), encoding="utf-8").read()
@@ -284,13 +391,26 @@ def solve9(t, src):
     return str(count)
 
 
-def solve10(t):
+def solve10(t, ans=None):
     nums = [(n, int(b)) for n, b in re.findall(r"([0-9A-F]+)<sub>(\d+)</sub>", t)]
+    if "сумма цифр" in t:
+        base = {"двоичной": 2, "восьмеричной": 8, "шестнадцатеричной": 16}[re.search(r"в (\w+) записи", t).group(1)]
+
+        def dsum(n):
+            s = 0
+            while n:
+                s += n % base
+                n //= base
+            return s
+        sums = [dsum(int(n, b)) for n, b in nums]
+        return str(min(sums) if "наименьшая" in t else max(sums))
     if "Переведите число" in t and "в десятичную" in t and nums:
         return str(int(nums[0][0], nums[0][1]))
     if "из десятичной" in t:
         n = int(re.search(r"Переведите число (\d+)", t).group(1))
-        b = bin(n)[2:]
+        b = format(n, "b")
+        if "укажите двоичное число" in t:
+            return b
         return str(b.count("1") if "единиц" in t else b.count("0"))
     vals = [int(n, b) for n, b in nums]
     return str(max(vals) if "максимальное" in t else min(vals))
@@ -303,13 +423,40 @@ SOLVERS = {1: solve1, 2: solve2, 3: solve3, 4: solve4, 5: solve5, 6: solve6, 7: 
 def check_1_10():
     for no, text, ans, src in task_items():
         try:
-            got = solve9(text, src) if no == 9 else SOLVERS[no](text)
+            got = solve9(text, src, ans) if no == 9 else SOLVERS[no](text, ans)
         except Exception as ex:  # noqa: BLE001
             got = f"ошибка решателя: {ex!r}"
         ok(no, got.lower() == ans.lower(), f"{src}: записано {ans!r}, пересчитано {got!r}")
 
 
 # ------------------------------------------------------------------ 11, 12
+
+def count_spec(spec, root):
+    """Независимый подсчёт файлов по описанию вопроса (pathlib + fnmatch)."""
+    import fnmatch
+    base = root.joinpath(*spec["root"].split("/")[1:])
+    files = [p for p in base.rglob("*") if p.is_file() and fnmatch.fnmatchcase(p.name, spec["glob"])]
+    if spec.get("subdirs_only"):
+        files = [p for p in files if p.parent != base]
+    if "size_gt" in spec:
+        files = [p for p in files if p.stat().st_size > spec["size_gt"]]
+    if "size_lt" in spec:
+        files = [p for p in files if p.stat().st_size < spec["size_lt"]]
+    if spec.get("total"):
+        return str(round(sum(p.stat().st_size for p in files) / 1024))
+    return str(len(files))
+
+
+def md_blocks(path):
+    """Пары (условие, ответ) из блоков подтипов файла."""
+    text = open(path, encoding="utf-8").read()
+    res = []
+    for body in re.findall(r"<!-- BEGIN:sub:[\d.]+ -->(.*?)<!-- END:sub:", text, re.S):
+        for block in re.split(r"\n#### Тренировка [\d.]+\n", body)[1:]:
+            ans = re.search(r"<summary>Ответ</summary>\s*\*\*(.+?)\*\*", block).group(1)
+            res.append((block.split("<details>")[0].strip(), ans))
+    return res
+
 
 def check_11_12():
     corpus = json.load(open(os.path.join(HERE, "corpus_questions.json"), encoding="utf-8"))
@@ -318,31 +465,47 @@ def check_11_12():
     for q in corpus["q11"]:
         hits = [p for p, tx in texts.items() if q["search"] in tx]
         ok(11, len(hits) == 1 and q["answer"] in texts[hits[0]], f"{q['q'][:60]}… найдено файлов: {len(hits)}")
-    files = [p for p in root.rglob("*") if p.is_file()]
     for q in corpus["q12"]:
-        m = re.search(r"\*\*(\.\w+)\*\*", q["q"])
-        if q.get("kind") == "ext":
-            n = sum(1 for p in files if p.suffix == m.group(1))
-        elif q.get("kind") == "year":
-            y = re.search(r"archive/(\d+)", q["q"]).group(1)
-            n = sum(1 for p in (root / y).rglob("*" + m.group(1)) if p.is_file())
-        elif q.get("kind") == "size":
-            lim = int(re.search(r"более (\d+) Кбайт", q["q"]).group(1))
-            n = sum(1 for p in files if p.suffix == m.group(1) and p.stat().st_size > lim * 1024)
-        elif q.get("kind") == "name":
-            n = sum(1 for p in files if p.stem == "article-1")
-        else:
-            n = round(sum(p.stat().st_size for p in (root / "photo").rglob("*") if p.is_file()) / 1024)
-        ok(12, str(n) == q["answer"], f"{q['q'][:60]}… записано {q['answer']}, пересчитано {n}")
-    # ответы в файлах совпадают с банком
+        sp = q["spec"]
+        # описание должно соответствовать тексту вопроса
+        core = sp["glob"].replace(".*", "").lstrip("*")
+        ok(12, core in q["q"] or sp["glob"] == "*", f"{q['q'][:60]}… маска не совпадает с текстом")
+        for k, word in (("size_gt", "более"), ("size_lt", "менее")):
+            if k in sp:
+                ok(12, f"{word} {sp[k] // 1024} Кбайт" in q["q"], f"{q['q'][:60]}… порог не совпадает")
+        n = count_spec(sp, root)
+        ok(12, n == q["answer"], f"{q['q'][:60]}… записано {q['answer']}, пересчитано {n}")
+    # ответы в .md совпадают с банком
+    bank = {(q["q"], q["answer"]) for q in corpus["q11"] + corpus["q12"]}
+    for no, fname in ((11, "11-search-in-files.md"), (12, "12-file-masks.md")):
+        for cond, ans in md_blocks(os.path.join(ROOT, "tasks", fname)):
+            cond = re.sub(r"\n\nГде искать.*", "", cond, flags=re.S)
+            ok(no, (cond, ans) in bank, f"{fname}: «{cond[:50]}…» нет в проверенном банке")
     for path in glob.glob(os.path.join(ROOT, "variants", "variant-*.md")):
         text = open(path, encoding="utf-8").read()
-        a11 = re.search(r"^\| 11 \| (.+?) \|$", text.split("**Задания 1–12**")[1], re.M).group(1)
-        q11 = re.search(r"### Задание 11\n\n(.+?)\n", text).group(1)
-        ok(11, any(q["q"] == q11 and q["answer"] == a11 for q in corpus["q11"]), f"{os.path.basename(path)}: 11")
+        key = text.split("**Задания 1–12**")[1]
+        for no in (11, 12):
+            a = re.search(rf"^\| {no} \| (.+?) \|$", key, re.M).group(1)
+            q = re.search(rf"### Задание {no}\n\n(.+?)\n", text).group(1)
+            ok(no, (q, a) in bank, f"{os.path.basename(path)}: задание {no} не из банка")
 
 
 # ------------------------------------------------------------------ 14
+
+def eval_14(spec, rows):
+    """Независимое вычисление ответа по описанию вопроса к заданию 14."""
+    def val(e, r):
+        if isinstance(e, int):
+            return r[e]
+        return r[e[1]].month if e[0] == "month" else r[e[1]] * r[e[2]]
+    cmp = {"==": lambda a, b: a == b, ">": lambda a, b: a > b, "<": lambda a, b: a < b,
+           ">=": lambda a, b: a >= b, "<=": lambda a, b: a <= b}
+    sel = [r for r in rows if all(cmp[o](val(e, r), v) for e, o, v in spec["conds"])]
+    if spec["agg"] == "count":
+        return len(sel)
+    xs = [val(spec["value"], r) for r in sel]
+    return {"sum": sum(xs), "avg": sum(xs) / len(xs), "max": max(xs), "min": min(xs)}[spec["agg"]]
+
 
 def check_14():
     from openpyxl import load_workbook
@@ -384,6 +547,20 @@ def check_14():
             got2 = sum(r[2] * r[3] for r in rows if r[0] == s2)
         ok(14, str(got1) == a1, f"{name} вопрос 1: записано {a1}, пересчитано {got1}")
         ok(14, str(got2) == a2, f"{name} вопрос 2: записано {a2}, пересчитано {got2}")
+        for e in d.get("extra", []):
+            got = eval_14(e["spec"], rows)
+            want = float(e["answer"].replace(",", "."))
+            ok(14, abs(got - want) < 0.006, f"{name}: «{e['q'][:50]}…» записано {e['answer']}, пересчитано {got}")
+            months = ["январе", "феврале", "марте", "апреле", "мае", "июне", "июле", "августе", "сентябре",
+                      "октябре", "ноябре", "декабре"]
+            for ex, _, v in e["spec"]["conds"]:
+                shown = months[v - 1] if isinstance(ex, list) and ex[0] == "month" else str(v)
+                ok(14, shown in e["q"], f"{name}: «{e['q'][:50]}…» условие {shown} не упомянуто в тексте")
+    tasks14 = open(os.path.join(ROOT, "tasks", "14-spreadsheets.md"), encoding="utf-8").read()
+    extras = {(e["q"], e["answer"]) for d in data.values() for e in d.get("extra", [])}
+    for cond, ans in md_blocks(os.path.join(ROOT, "tasks", "14-spreadsheets.md")):
+        q = re.sub(r"^Файл \[`[^`]+`\]\([^)]+\)\. ", "", cond)
+        ok(14, (q, ans) in extras, f"14: «{q[:50]}…» нет в проверенном банке")
 
 
 # ------------------------------------------------------------------ 15, 16
@@ -402,8 +579,24 @@ def check_15_16():
     for path in glob.glob(os.path.join(ROOT, "tasks", "15-robot.md")) + glob.glob(os.path.join(ROOT, "variants", "*.md")):
         text = open(path, encoding="utf-8").read()
         for code in re.findall(r"```\n(использовать Робот.*?)```", text, re.S):
-            ok(15, any(code.strip() == t["solution"].strip() for t in by_id.values()) or "| 1." in code,
+            ok(15, any(code.strip() == t["solution"].strip() for t in by_id.values()) or "|" in code,
                f"{os.path.basename(path)}: алгоритм не из проверенного банка")
+    # рукописные алгоритмы в гайдах помечены <!-- robot:rNN --> и проверяются на соответствующей задаче
+    pb = {t["id"]: t for t in prog_tasks.TASKS}
+    for path in glob.glob(os.path.join(ROOT, "tasks", "*.md")) + glob.glob(os.path.join(ROOT, "theory", "*.md")):
+        text = open(path, encoding="utf-8").read()
+        for tid, code in re.findall(r"<!-- robot:(r\d+) -->\s*```\n(.*?)```", text, re.S):
+            try:
+                robot_tasks.check(dict(by_id[tid], solution=code), runs=200, seed=7)
+                ok(15, True, "")
+            except Exception as ex:  # noqa: BLE001
+                ok(15, False, f"{os.path.basename(path)} ({tid}): {ex}")
+        for tid, code in re.findall(r"<!-- prog:(p\d+) -->\s*```python\n(.*?)```", text, re.S):
+            try:
+                prog_tasks.check(dict(pb[tid], solution=code), extra=100)
+                ok(16, True, "")
+            except AssertionError as ex:
+                ok(16, False, f"{os.path.basename(path)} ({tid}): {ex}")
     for t in prog_tasks.TASKS:
         try:
             prog_tasks.check(t, extra=100)

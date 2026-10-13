@@ -215,6 +215,106 @@ def theme_shop(rng, name):
     return intro, header, rows, [(q1, str(a1)), (q2, str(a2)), (q3, a3)]
 
 
+# ------------------------------------------------------------------ дополнительные вопросы по подтипам
+
+def eval_expr(e, r):
+    """Значение «выражения» над строкой: номер столбца, ["month", i] или ["mul", i, j]."""
+    if isinstance(e, int):
+        return r[e]
+    if e[0] == "month":
+        return r[e[1]].month
+    return r[e[1]] * r[e[2]]
+
+
+def eval_spec(spec, rows):
+    ops = {"==": lambda a, b: a == b, ">": lambda a, b: a > b, "<": lambda a, b: a < b,
+           ">=": lambda a, b: a >= b, "<=": lambda a, b: a <= b}
+    sel = [r for r in rows if all(ops[o](eval_expr(e, r), v) for e, o, v in spec["conds"])]
+    vals = [eval_expr(spec["value"], r) for r in sel] if spec["agg"] != "count" else []
+    return {"count": lambda: len(sel), "sum": lambda: sum(vals), "avg": lambda: sum(vals) / len(vals),
+            "max": lambda: max(vals), "min": lambda: min(vals)}[spec["agg"]]()
+
+
+def fmt_num(x, agg):
+    if agg == "avg":
+        return r2(x)
+    if isinstance(x, float):
+        x = round(x, 1)
+        return str(int(x)) if x == int(x) else str(x).replace(".", ",")
+    return str(x)
+
+
+COL = "ABCDEFGH"
+
+
+def extra_questions(header, rows, rng):
+    """Вопросы по подтипам: (подтип, текст, spec). Ответ считается по spec."""
+    q = []
+    kind = header[0]
+    if kind == "округ":
+        d = rng.sample([c for c, _ in DISTRICTS], 3)
+        sb = rng.sample(SUBJ, 2)
+        n = rng.choice([500, 600, 700, 800])
+        q += [("14.1", f"Сколько учеников из округа «{d[0]}» набрали больше {n} баллов?",
+               {"agg": "count", "conds": [[0, "==", d[0]], [3, ">", n]]}),
+              ("14.1", f"Сколько учеников, выбравших предмет «{sb[0]}», набрали не меньше {n} баллов?",
+               {"agg": "count", "conds": [[2, "==", sb[0]], [3, ">=", n]]}),
+              ("14.2", f"Каков средний балл учеников, выбравших предмет «{sb[1]}»? Ответ дайте с точностью до двух "
+                       "знаков после запятой.", {"agg": "avg", "value": 3, "conds": [[2, "==", sb[1]]]}),
+              ("14.2", f"Чему равна сумма баллов всех учеников округа «{d[1]}»?",
+               {"agg": "sum", "value": 3, "conds": [[0, "==", d[1]]]}),
+              ("14.3", f"Каков наибольший балл среди учеников округа «{d[2]}», выбравших предмет «{sb[0]}»?",
+               {"agg": "max", "value": 3, "conds": [[0, "==", d[2]], [2, "==", sb[0]]]}),
+              ("14.3", f"Каков наименьший балл среди учеников, выбравших предмет «{sb[1]}»?",
+               {"agg": "min", "value": 3, "conds": [[2, "==", sb[1]]]})]
+    elif kind == "дата":
+        m1, m2 = rng.sample(range(1, 13), 2)
+        mn = ["январе", "феврале", "марте", "апреле", "мае", "июне", "июле", "августе", "сентябре", "октябре",
+              "ноябре", "декабре"]
+        w = rng.choice(WIND)
+        q += [("14.1", "Сколько дней в году среднесуточная температура была выше 20 °C?",
+               {"agg": "count", "conds": [[1, ">", 20]]}),
+              ("14.1", f"Сколько дней дул ветер «{w}» и при этом выпали осадки (больше 0 мм)?",
+               {"agg": "count", "conds": [[4, "==", w], [2, ">", 0]]}),
+              ("14.2", f"Сколько миллиметров осадков выпало в {mn[m1 - 1]}?",
+               {"agg": "sum", "value": 2, "conds": [[["month", 0], "==", m1]]}),
+              ("14.2", f"Какова средняя скорость ветра в дни, когда дул ветер «{w}»? Ответ дайте с точностью до двух "
+                       "знаков после запятой.", {"agg": "avg", "value": 5, "conds": [[4, "==", w]]}),
+              ("14.3", f"Какая самая высокая среднесуточная температура была в {mn[m2 - 1]}?",
+               {"agg": "max", "value": 1, "conds": [[["month", 0], "==", m2]]}),
+              ("14.3", f"Каким было самое низкое атмосферное давление в {mn[m1 - 1]}?",
+               {"agg": "min", "value": 3, "conds": [[["month", 0], "==", m1]]})]
+    elif kind == "продукт":
+        q += [("14.1", "Сколько продуктов имеют калорийность больше 400 ккал?",
+               {"agg": "count", "conds": [[4, ">", 400]]}),
+              ("14.1", "Сколько продуктов содержат не меньше 20 г белков и меньше 10 г углеводов?",
+               {"agg": "count", "conds": [[2, ">=", 20], [3, "<", 10]]}),
+              ("14.2", "Какова средняя калорийность продуктов, содержащих меньше 5 г жиров? Ответ дайте с точностью "
+                       "до двух знаков после запятой.", {"agg": "avg", "value": 4, "conds": [[1, "<", 5]]}),
+              ("14.2", "Каково среднее содержание белков в продуктах с калорийностью больше 300 ккал? Ответ дайте "
+                       "с точностью до двух знаков после запятой.", {"agg": "avg", "value": 2, "conds": [[4, ">", 300]]}),
+              ("14.3", "Каково наибольшее содержание белков среди продуктов, содержащих меньше 20 г углеводов?",
+               {"agg": "max", "value": 2, "conds": [[3, "<", 20]]}),
+              ("14.3", "Какова наименьшая калорийность среди продуктов, содержащих больше 30 г жиров?",
+               {"agg": "min", "value": 4, "conds": [[1, ">", 30]]})]
+    else:
+        sh = rng.sample(SHOPS, 2)
+        gd = rng.sample([x for x, _ in GOODS], 2)
+        q += [("14.1", f"Сколько записей о продажах в таблице относится к магазину «{sh[0]}»?",
+               {"agg": "count", "conds": [[0, "==", sh[0]]]}),
+              ("14.1", "Сколько продаж, в которых выручка (количество × цена) больше 5000 руб.? Сначала вычислите "
+                       "выручку в отдельном столбце.", {"agg": "count", "conds": [[["mul", 2, 3], ">", 5000]]}),
+              ("14.2", f"Сколько всего единиц товара «{gd[0]}» продано во всех магазинах?",
+               {"agg": "sum", "value": 2, "conds": [[1, "==", gd[0]]]}),
+              ("14.2", f"Какое среднее количество единиц в одной продаже в магазине «{sh[1]}»? Ответ дайте с "
+                       "точностью до двух знаков после запятой.", {"agg": "avg", "value": 2, "conds": [[0, "==", sh[1]]]}),
+              ("14.3", f"Какова наибольшая выручка (количество × цена) одной продажи в магазине «{sh[0]}»?",
+               {"agg": "max", "value": ["mul", 2, 3], "conds": [[0, "==", sh[0]]]}),
+              ("14.3", f"Какое наименьшее количество единиц товара «{gd[1]}» было продано за одну продажу?",
+               {"agg": "min", "value": 2, "conds": [[1, "==", gd[1]]]})]
+    return q
+
+
 THEMES = [theme_test, theme_weather, theme_food, theme_shop]
 
 if __name__ == "__main__":
@@ -227,9 +327,14 @@ if __name__ == "__main__":
         theme = THEMES[i % len(THEMES)]
         intro, header, rows, qs = theme(rng, nm)
         res[nm] = {"intro": intro, "preview": first_rows_md(header, rows), "questions": qs}
+        if nm.startswith("practice") or nm == "example.xlsx":
+            res[nm]["extra"] = [{"sub": sb, "q": qt, "spec": sp, "answer": fmt_num(eval_spec(sp, rows), sp["agg"])}
+                                for sb, qt, sp in extra_questions(header, rows, random.Random(nm))]
     # отдельный файл для разбора в tasks/14
     intro, header, rows, qs = theme_test(random.Random(99), "example.xlsx")
-    res["example.xlsx"] = {"intro": intro, "preview": first_rows_md(header, rows), "questions": qs}
+    res["example.xlsx"] = {"intro": intro, "preview": first_rows_md(header, rows), "questions": qs,
+                           "extra": [{"sub": sb, "q": qt, "spec": sp, "answer": fmt_num(eval_spec(sp, rows), sp["agg"])}
+                                     for sb, qt, sp in extra_questions(header, rows, random.Random("example"))]}
     with open(os.path.join(os.path.dirname(__file__), "xlsx_questions.json"), "w", encoding="utf-8") as f:
         json.dump(res, f, ensure_ascii=False, indent=1)
     print("готово:", ", ".join(names))

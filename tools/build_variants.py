@@ -13,7 +13,7 @@ import random
 import gen_tasks as g
 import prog_tasks
 import robot_tasks
-from build_practice import VARIANT_PROG, VARIANT_ROBOT, split_q12
+from build_practice import VARIANT_PROG, VARIANT_ROBOT, variant_picks
 
 HERE = os.path.dirname(__file__)
 ROOT = os.path.join(HERE, "..")
@@ -127,10 +127,7 @@ def main():
     corpus = json.load(open(os.path.join(HERE, "corpus_questions.json"), encoding="utf-8"))
     xlsx = json.load(open(os.path.join(HERE, "xlsx_questions.json"), encoding="utf-8"))
     t13 = json.load(open(os.path.join(HERE, "task13.json"), encoding="utf-8"))
-    rng = random.Random(77)
-    q11 = rng.sample(corpus["q11"][27:53], N_VARIANTS)  # [53] — в разборе, [:27] — в тренировке
-    rest12 = split_q12(corpus["q12"])[1]
-    q12 = rng.sample(rest12, N_VARIANTS)
+    q11, q12 = variant_picks(corpus)
     all_answers = {v: build_variant(v, q11, q12, t13, xlsx) for v in range(1, N_VARIANTS + 1)}
 
     # сводная таблица для учителя

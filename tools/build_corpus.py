@@ -310,8 +310,29 @@ def make_q11(articles):
                  f"Назовите фамилию автора проекта.")
             ans, key = a["last"], a["topic"][0].upper() + a["topic"][1:]
         if unique_phrase(key):
-            qs.append({"q": q, "answer": ans, "file": a["file"], "search": key})
+            qs.append({"q": q, "answer": ans, "file": a["file"], "search": key, "kind": t})
     return qs
+
+
+def count_by_spec(spec):
+    """Подсчёт по описанию вопроса: root, glob (маска имени), size_gt / size_lt (байты), total (сумма объёмов)."""
+    import fnmatch
+    base = os.path.join(ROOT, *spec["root"].split("/")[1:])
+    hits = []
+    for dp, _, fns in os.walk(base):
+        if spec.get("subdirs_only") and os.path.abspath(dp) == os.path.abspath(base):
+            continue
+        for fn in fns:
+            p = os.path.join(dp, fn)
+            sz = os.path.getsize(p)
+            if not fnmatch.fnmatchcase(fn, spec["glob"]):
+                continue
+            if "size_gt" in spec and not sz > spec["size_gt"]:
+                continue
+            if "size_lt" in spec and not sz < spec["size_lt"]:
+                continue
+            hits.append(sz)
+    return str(round(sum(hits) / 1024)) if spec.get("total") else str(len(hits))
 
 
 def make_q12():
@@ -319,28 +340,41 @@ def make_q12():
     rel = lambda p: os.path.relpath(p, ROOT)
     qs = []
     years = sorted({rel(p).split(os.sep)[0] for p in files if rel(p)[0].isdigit()})
+
+    def add(q, kind, spec):
+        qs.append({"q": q, "answer": count_by_spec(spec), "kind": kind, "spec": spec})
+
     for ext in [".txt", ".htm", ".jpg", ".png", ".csv"]:
-        n = sum(1 for p in files if p.endswith(ext))
-        qs.append({"q": f"Сколько файлов с расширением **{ext}** содержится в каталоге **archive** "
-                        f"и всех его подкаталогах? В ответе укажите только число.", "answer": str(n), "kind": "ext"})
+        add(f"Сколько файлов с расширением **{ext}** содержится в каталоге **archive** "
+            f"и всех его подкаталогах? В ответе укажите только число.", "ext", {"root": "archive", "glob": "*" + ext})
     for y in years:
         for ext in [".txt", ".jpg"]:
-            n = sum(1 for p in files if p.endswith(ext) and rel(p).startswith(y + os.sep))
-            if n:
-                qs.append({"q": f"Сколько файлов с расширением **{ext}** содержится в подкаталогах каталога "
-                                f"**archive/{y}**? В ответе укажите только число.", "answer": str(n), "kind": "year"})
+            spec = {"root": f"archive/{y}", "glob": "*" + ext, "subdirs_only": True}
+            if count_by_spec(spec) != "0":
+                add(f"Сколько файлов с расширением **{ext}** содержится в подкаталогах каталога "
+                    f"**archive/{y}**? В ответе укажите только число.", "year", spec)
     for lim in [10, 20, 30, 40]:
         for ext in [".jpg", ".png"]:
-            n = sum(1 for p in files if p.endswith(ext) and os.path.getsize(p) > lim * 1024)
-            qs.append({"q": f"Сколько файлов с расширением **{ext}** объёмом **более {lim} Кбайт** содержится "
-                            f"в каталоге **archive** и всех его подкаталогах? В ответе укажите только число.",
-                       "answer": str(n), "kind": "size"})
-    n = sum(1 for p in files if os.path.basename(p).startswith("article-1."))
-    qs.append({"q": "Сколько файлов, имя которых (без расширения) — **article-1**, содержится в каталоге "
-                    "**archive** и всех его подкаталогах?", "answer": str(n), "kind": "name"})
-    tot = sum(os.path.getsize(p) for p in files if rel(p).startswith("photo" + os.sep))
-    qs.append({"q": "Каков общий объём (в Кбайтах) всех файлов в каталоге **archive/photo** и его подкаталогах? "
-                    "Ответ округлите до целого числа.", "answer": str(round(tot / 1024)), "kind": "total"})
+            add(f"Сколько файлов с расширением **{ext}** объёмом **более {lim} Кбайт** содержится "
+                f"в каталоге **archive** и всех его подкаталогах? В ответе укажите только число.",
+                "size", {"root": "archive", "glob": "*" + ext, "size_gt": lim * 1024})
+    add("Сколько файлов, имя которых (без расширения) — **article-1**, содержится в каталоге "
+        "**archive** и всех его подкаталогах?", "name", {"root": "archive", "glob": "article-1.*"})
+    add("Каков общий объём (в Кбайтах) всех файлов в каталоге **archive/photo** и его подкаталогах? "
+        "Ответ округлите до целого числа.", "total", {"root": "archive/photo", "glob": "*", "total": True})
+    # маски имён
+    for mask, about in [("photo-?.jpg", "photo-?.jpg"), ("img-0?.*", "img-0?.*"), ("article-*.htm", "article-*.htm"),
+                        ("*-2.*", "*-2.*"), ("?????.*", "?????.*")]:
+        add(f"Сколько файлов, имена которых соответствуют маске `{about}`, содержится в каталоге **archive** "
+            "и всех его подкаталогах? В ответе укажите только число.", "mask", {"root": "archive", "glob": mask})
+    for lim, ext in [(5, ".jpg"), (8, ".jpg"), (10, ".png"), (25, ".png")]:
+        add(f"Сколько файлов с расширением **{ext}** объёмом **менее {lim} Кбайт** содержится в каталоге "
+            "**archive** и всех его подкаталогах? В ответе укажите только число.",
+            "size_lt", {"root": "archive", "glob": "*" + ext, "size_lt": lim * 1024})
+    for ext in [".png", ".csv"]:
+        add(f"Каков общий объём (в Кбайтах) всех файлов с расширением **{ext}** в каталоге **archive** и всех его "
+            "подкаталогах? Ответ округлите до целого числа.", "total", {"root": "archive", "glob": "*" + ext,
+                                                                       "total": True})
     return qs
 
 

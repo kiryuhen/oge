@@ -146,6 +146,7 @@ def doc_requirements(d):
            f"Таблица ({rows} {'строки' if rows < 5 else 'строк'}, {cols} столбца) выровнена **по центру**; ширина таблицы меньше ширины основного "
            f"текста. Текст в первой строке таблицы — полужирный, выровнен по центру; в остальных ячейках — "
            f"выравнивание по левому краю.\n\n"
+           "Интервал между текстом и таблицей не менее 12 пунктов, но не более 24 пунктов.\n\n"
            "При этом допустимо, чтобы ширина вашего текста отличалась от ширины текста в примере, поскольку ширина "
            "текста зависит от размеров страницы и полей. В этом случае разбиение текста на строки должно "
            "соответствовать стандартной ширине абзаца.")
@@ -232,41 +233,63 @@ PRES = [
 ]
 
 
+LAYOUTS = {
+    "A": ("заголовок слайда, два блока текста, два изображения", "заголовок слайда, три изображения, три блока текста"),
+    "B": ("заголовок слайда, три изображения, один блок текста", "заголовок слайда, одно изображение, один блок текста"),
+}
+
+
+def pres_layout(p):
+    return "A" if int(p["id"][1:]) % 2 == 0 else "B"
+
+
 def pres_requirements(p):
+    s2, s3 = LAYOUTS[pres_layout(p)]
     return (f"Используя информацию и иллюстративный материал о теме «**{p['topic']}**», создайте презентацию из "
-            "**трёх слайдов**.\n\n"
-            "В презентации должны использоваться простые шаблоны оформления: следует использовать единый стиль "
-            "оформления всех слайдов, фон слайдов должен быть одинаковым (не белым).\n\n"
-            "1. **Первый слайд** — титульный слайд с названием презентации; в подзаголовке титульного слайда в "
-            "качестве информации об авторе презентации указывается ваше имя (или идентификационный номер).\n"
-            "2. **Второй слайд** — основная информация в соответствии с заданием, размещённая по образцу (заголовок, "
-            "три изображения, подписи к ним или текст).\n"
-            "3. **Третий слайд** — дополнительная информация по теме: заголовок, одно изображение и текст.\n\n"
-            "Размер шрифта: для названия презентации на титульном слайде — **40 пунктов**; для подзаголовка на "
-            "титульном слайде и заголовков слайдов — **24 пункта**; для основного текста — **20 пунктов**.\n\n"
-            "Текст не должен перекрывать основные изображения или сливаться с фоном.\n\n"
+            "**трёх слайдов**. В презентации должны содержаться краткие иллюстрированные сведения по теме. "
+            "Все слайды должны быть выполнены в едином стиле, каждый слайд должен быть озаглавлен.\n\n"
+            "**Требования к оформлению презентации**\n\n"
+            "1. Ровно три слайда **без анимации**. Параметры страницы (слайда): экран **16:9**, ориентация альбомная.\n"
+            "2. **Первый слайд** — титульный: название презентации; в подзаголовке — идентификационный номер "
+            "участника экзамена (на тренировке — любой номер).\n"
+            f"3. **Второй слайд** — основная информация, по макету: {s2}.\n"
+            f"4. **Третий слайд** — дополнительная информация, по макету: {s3}.\n"
+            "5. В презентации используется **единый тип шрифта**. Размер шрифта: название на титульном слайде — "
+            "**40 пт**; подзаголовок титульного слайда и заголовки слайдов — **24 пт**; основной текст — **20 пт**.\n"
+            "6. Текст не перекрывает изображения и не сливается с фоном; изображения не искажены "
+            "(масштабируются пропорционально).\n\n"
             f"Информация для слайдов: {p['info']}\n\n"
-            "Изображения найдите самостоятельно (на экзамене их дают в каталоге задания). Сохраните презентацию в "
-            "формате **.odp** (LibreOffice Impress) или **.pptx** (PowerPoint).")
+            "Изображения подберите самостоятельно (на экзамене их дают в каталоге задания). Сохраните презентацию "
+            "в формате **.odp** (LibreOffice Impress).")
 
 
-def slides_html(p):
-    box = lambda t: (f'<div style="flex:1;height:70px;border:2px dashed #2e7d32;border-radius:6px;display:flex;'
-                     f'align-items:center;justify-content:center;color:#2e7d32;font-size:11px;background:#fff">{t}</div>')
-    slide = lambda inner: (f'<div style="width:300px;height:225px;background:#e8f1fb;border:1px solid #90a4ae;'
-                           f'border-radius:4px;padding:14px;box-sizing:border-box;font-family:Liberation Sans;'
-                           f'display:flex;flex-direction:column;gap:8px">{inner}</div>')
-    s1 = slide(f'<div style="flex:1;display:flex;flex-direction:column;justify-content:center;align-items:center">'
-               f'<div style="font-size:28px;font-weight:bold;color:#0d47a1">{p["topic"]}</div>'
-               f'<div style="font-size:14px;color:#37474f;margin-top:10px">Иванов Иван, 9 «А»</div></div>')
-    s2 = slide(f'<div style="font-size:17px;font-weight:bold;color:#0d47a1;text-align:center">Основная информация</div>'
-               f'<div style="display:flex;gap:8px">{box("изображение 1")}{box("изображение 2")}{box("изображение 3")}</div>'
-               f'<div style="font-size:11px;color:#263238">Текст 20 пт: 2–3 предложения о теме.</div>')
-    s3 = slide(f'<div style="font-size:17px;font-weight:bold;color:#0d47a1;text-align:center">Интересный факт</div>'
-               f'<div style="display:flex;gap:10px;flex:1"><div style="flex:1;font-size:11px;color:#263238">'
-               f'Текст 20 пт: дополнительная информация по теме.</div>{box("изображение")}</div>')
+def slides_html(layout):
+    box = lambda t: (f'<div style="flex:1;min-height:52px;border:2px dashed #2e7d32;border-radius:6px;display:flex;'
+                     f'align-items:center;justify-content:center;color:#2e7d32;font-size:10px;background:#fff">{t}</div>')
+    txt = lambda t: (f'<div style="flex:1;min-height:40px;border:1px solid #90a4ae;border-radius:4px;padding:4px;'
+                     f'font-size:10px;color:#263238;background:#fff">{t}</div>')
+    slide = lambda inner: (f'<div style="width:320px;height:180px;background:#fff;border:1px solid #607d8b;'
+                           f'border-radius:4px;padding:10px;box-sizing:border-box;font-family:Liberation Sans;'
+                           f'display:flex;flex-direction:column;gap:6px">{inner}</div>')
+    title = lambda t: f'<div style="font-size:15px;font-weight:bold;color:#0d47a1;text-align:center">{t} (24 пт)</div>'
+    s1 = slide('<div style="flex:1;display:flex;flex-direction:column;justify-content:center;align-items:center">'
+               '<div style="font-size:24px;font-weight:bold;color:#0d47a1">Название (40 пт)</div>'
+               '<div style="font-size:12px;color:#37474f;margin-top:8px">Номер участника (24 пт)</div></div>')
+    if layout == "A":
+        s2 = slide(title("Заголовок") + '<div style="display:flex;gap:6px;flex:1">'
+                   f'<div style="flex:1;display:flex;flex-direction:column;gap:6px">{txt("Текст 1 (20 пт)")}{box("изображение 1")}</div>'
+                   f'<div style="flex:1;display:flex;flex-direction:column;gap:6px">{box("изображение 2")}{txt("Текст 2 (20 пт)")}</div></div>')
+        s3 = slide(title("Заголовок") + f'<div style="display:flex;gap:6px">{box("изобр. 1")}{box("изобр. 2")}{box("изобр. 3")}</div>'
+                   f'<div style="display:flex;gap:6px">{txt("Текст 1")}{txt("Текст 2")}{txt("Текст 3")}</div>')
+    else:
+        s2 = slide(title("Заголовок") + f'<div style="display:flex;gap:6px">{box("изобр. 1")}{box("изобр. 2")}{box("изобр. 3")}</div>'
+                   + txt("Текст (20 пт)"))
+        s3 = slide(title("Заголовок") + f'<div style="display:flex;gap:6px;flex:1">{txt("Текст (20 пт)")}{box("изображение")}</div>')
+    cap = lambda t: f'<div style="font:12px Liberation Sans;color:#455a64;text-align:center;margin-top:4px">{t}</div>'
+    col = lambda sl, c: f'<div>{sl}{cap(c)}</div>'
     return (f'<!doctype html><html><head><meta charset="utf-8"></head><body style="margin:0;background:#fff">'
-            f'<div style="display:flex;gap:16px;padding:16px">{s1}{s2}{s3}</div></body></html>')
+            f'<div style="display:flex;gap:14px;padding:14px">{col(s1, "Слайд 1")}{col(s2, "Слайд 2")}{col(s3, "Слайд 3")}'
+            f'</div></body></html>')
 
 
 if __name__ == "__main__":
@@ -276,9 +299,10 @@ if __name__ == "__main__":
         shot(doc_html(d), os.path.join(IMG, f"{d['id']}.png"), 740, 900)
         out["docs"].append({"id": d["id"], "topic": d["topic"], "req": doc_requirements(d),
                             "fs": d["fs"], "indent": d["indent"]})
-    shot(slides_html(PRES[0]), os.path.join(IMG, "slides-example.png"), 980, 420)
+    for lay in LAYOUTS:
+        shot(slides_html(lay), os.path.join(IMG, f"layout-{lay}.png"), 1040, 420)
     for p in PRES:
-        out["pres"].append({"id": p["id"], "topic": p["topic"], "req": pres_requirements(p)})
+        out["pres"].append({"id": p["id"], "topic": p["topic"], "req": pres_requirements(p), "layout": pres_layout(p)})
     with open(os.path.join(HERE, "task13.json"), "w", encoding="utf-8") as f:
         json.dump(out, f, ensure_ascii=False, indent=1)
     print("готово:", len(DOCS), "документов,", len(PRES), "презентаций")

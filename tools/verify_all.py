@@ -578,8 +578,9 @@ def check_15_16():
     # решения, напечатанные в .md, совпадают с проверенными
     for path in glob.glob(os.path.join(ROOT, "tasks", "15-robot.md")) + glob.glob(os.path.join(ROOT, "variants", "*.md")):
         text = open(path, encoding="utf-8").read()
+        marked = {c.strip() for c in re.findall(r"<!-- robot:r\d+ -->\s*```\n(.*?)```", text, re.S)}
         for code in re.findall(r"```\n(использовать Робот.*?)```", text, re.S):
-            ok(15, any(code.strip() == t["solution"].strip() for t in by_id.values()) or "|" in code,
+            ok(15, any(code.strip() == t["solution"].strip() for t in by_id.values()) or code.strip() in marked,
                f"{os.path.basename(path)}: алгоритм не из проверенного банка")
     # рукописные алгоритмы в гайдах помечены <!-- robot:rNN --> и проверяются на соответствующей задаче
     pb = {t["id"]: t for t in prog_tasks.TASKS}

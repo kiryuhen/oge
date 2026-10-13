@@ -200,6 +200,7 @@ def main():
     items = []
     for i, pr in enumerate(t13["pres"][1:6]):
         items.append(f"### Задача {i + 1} (13.1). Презентация «{pr['topic']}»\n\n{pr['req']}\n\n"
+                     f"**Макет слайдов:**\n\n![Макет](../images/task13/layout-{pr['layout']}.png)\n\n"
                      "<details><summary>Как проверить</summary>\n\nПройдите по "
                      "[чек-листу 13.1](#чек-лист-самопроверки-131). Одна ошибка — минус балл, две — ноль.\n\n</details>\n")
     for i, d in enumerate(t13["docs"][1:6]):

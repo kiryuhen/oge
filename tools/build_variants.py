@@ -69,7 +69,8 @@ def build_variant(v, q11, q12, t13, xlsx):
 
     pr, doc = t13["pres"][5 + v], t13["docs"][5 + v]
     parts.append("### Задание 13\n\nВыберите **одно** из заданий: 13.1 или 13.2.\n\n"
-                 f"#### 13.1. Презентация «{pr['topic']}»\n\n{pr['req']}\n\n"
+                 f"#### 13.1. Презентация «{pr['topic']}»\n\n{pr['req']}\n\n**Макет слайдов:**\n\n"
+                 f"![Макет](../images/task13/layout-{pr['layout']}.png)\n\n"
                  f"#### 13.2. Документ «{doc['topic']}»\n\n{doc['req']}\n\n**Образец:**\n\n"
                  f"![Образец](../images/task13/{doc['id']}.png)\n")
     answers[13] = ("Проверка по чек-листам: [13.1](../tasks/13-presentation-text.md#чек-лист-самопроверки-131), "
